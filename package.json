@@ -1,0 +1,27 @@
+{
+  "name": "random-facebook-bot",
+  "version": "0.2.5",
+  "description": "A facebook bot on Random page",
+  "engines": {
+    "node": "5.10.1"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.15.0",
+    "express": "4.13.3",
+    "superagent": "^1.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nRewik/Random"
+  },
+  "keywords": [
+    "random",
+    "Facebook",
+    "messenger"
+  ],
+  "license": "MIT"
+}
