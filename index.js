@@ -3,6 +3,7 @@ const express = require('express')
 const app = express()
 const bodyParser = require('body-parser')
 const request = require('superagent')
+const chance = require('chance').Chance()
 
 app.set('port', (process.env.PORT || 5000))
 
@@ -10,7 +11,7 @@ app.use(bodyParser.json())
 app.use(express.static(path.join(__dirname, '/public')))
 
 app.get('/webhook', (req, res) => {
-  if (req.query['hub.verify_token'] === 'A7760FD8-7683-4262-88E0-C0F379C1C1D6') {
+  if (req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
     res.send(req.query['hub.challenge'])
   } else {
     res.send('Error, wrong validation token')
@@ -35,13 +36,26 @@ const sendTextMessage = (sender, text) => {
 }
 
 app.post('/webhook/', (req, res) => {
-  messaging_events = req.body.entry[0].messaging
+  const messaging_events = req.body.entry[0].messaging
   messaging_events.map( event => {
-    sender = event.sender.id
+    const sender = event.sender.id
     if (event.message && event.message.text) {
-      text = event.message.text
+      const text = event.message.text
+
       // Handle a text message from this sender
-      sendTextMessage(sender, `Text received: ${text.substring(0, 200)}`)
+      const random = (command) => {
+        if ( typeof chance[command] === 'function' ) {
+          return chance[command]()
+        }
+        return null
+      }
+
+      const result = random(text.toLowerCase())
+      if (result) {
+        sendTextMessage(sender, `${result}`)
+      } else {
+        sendTextMessage(sender, `I don't understand.`)
+      }  
     }
   })
   res.sendStatus(200)
