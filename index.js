@@ -54,8 +54,13 @@ app.post('/webhook/', (req, res) => {
       if (result) {
         sendTextMessage(sender, `${result}`)
       } else {
-        sendTextMessage(sender, `I don't understand.`)
-      }  
+        const failedSentences = [
+          `I don't understand that.`,
+          `I cannot do that, but I can roll dices all day.`,
+          `That is not within my capabilities.`
+        ]
+        sendTextMessage(sender, chance.pickone(failedSentences))
+      }
     }
   })
   res.sendStatus(200)
