@@ -1,3 +1,5 @@
+'use strict'
+
 const path = require('path')
 const express = require('express')
 const app = express()
@@ -50,17 +52,80 @@ app.post('/webhook/', (req, res) => {
         return null
       }
 
-      const result = random(text.toLowerCase())
-      if (result) {
-        sendTextMessage(sender, `${result}`)
-      } else {
-        const failedSentences = [
-          `I don't understand that.`,
-          `I cannot do that, but I can roll dices all day.`,
-          `That is not within my capabilities.`
-        ]
-        sendTextMessage(sender, chance.pickone(failedSentences))
+      const tryFallBackCommand = () => {
+        const result = random(text.toLowerCase())
+        if (result) {
+          sendTextMessage(sender, `${result}`)
+        } else {
+          const failedSentences = [
+            `I don't understand that.`,
+            `I cannot do that, but I can roll dices all day.`,
+            `That is not within my capabilities.`
+          ]
+          sendTextMessage(sender, chance.pickone(failedSentences))
+        }
       }
+
+      request
+        .get('https://api.projectoxford.ai/luis/v1/application')
+        .query({
+          id: process.env.LUIS_APP_ID,
+          'subscription-key': process.env.LUIS_APP_SUBSCRIPTION_KEY,
+          q: text
+        })
+        .end(function(error, response){
+          if (error) {
+            return console.log(`Error LUIS: ${error}`);
+          }
+
+          const resultIntent = response.body.intents[0]
+          console.log(JSON.stringify(resultIntent, null, 2))
+          if ( resultIntent.intent === 'RANDOM' && resultIntent.score > 0.5 ) {
+
+            // Extract parameters to dict
+            let parameters = {}
+            resultIntent.actions[0].parameters.forEach(parameter => {
+              if (parameter.value) {
+                parameters[parameter.name] = parameter.value[0].entity
+              }
+            })
+
+            // Check if it is a support random type
+            // Now, we support only number type
+            const supportRandomType = (parameters.type === 'number' || parameters.type === 'numbers')
+            if (!supportRandomType) {
+              return tryFallBackCommand()
+            }
+
+            const amount = Number(parameters.amount) ? Number(parameters.amount) : 1
+
+            // Parse args
+            let args = {}
+            if (parameters.min) { args.min = Number(parameters.min) }
+            if (parameters.max) { args.max = Number(parameters.max) }
+
+            // Handle args exception
+            if ((args.min && parameters.min) < 0 || (args.max && parameters.max < 0)) {
+              return sendTextMessage(sender, `Number should be greater than or equal zero.`)
+            }
+            if (args.min && args.max && args.min > args.max) {
+              return sendTextMessage(sender, `Lowerbound should be less than or equal upperbound.`)
+            }
+
+            // Give the answer
+            let responseText = ''
+            for (let i=1; i<=amount; i++) {
+              const randomResult = chance.natural(args)
+              const answer = amount == 1 ? `${randomResult}` : `${i}) ${randomResult}`
+              responseText += answer + '\n'
+            }
+            sendTextMessage(sender, responseText)
+          } else {
+            tryFallBackCommand()
+          }
+        })
+        // end request
+
     }
   })
   res.sendStatus(200)
